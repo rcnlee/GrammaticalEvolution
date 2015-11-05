@@ -171,8 +171,7 @@ end
 
 #=
 function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task)
-  full_range = (rule.range.stop - rule.range.start)
-  value = (ind[consume(pos)] % length(full_range))+rule.range.start
+  value = (ind[consume(pos)] % length(rule.range))+rule.range.start
 
   if rule.action !== nothing
     value = rule.action(value)
