@@ -1,9 +1,5 @@
-push!(LOAD_PATH, "../src")
-
 using GrammaticalEvolution
 import GrammaticalEvolution.evaluate!
-
-include("ExamplePopulation.jl")
 
 # ground truth we're matching against
 gt(x, y) = 2*x + 5*y
@@ -26,13 +22,14 @@ function create_grammar()
 end
 
 function GrammaticalEvolution.evaluate!(grammar::Grammar, ind::ExampleIndividual)
-  fitness::Array{Float64, 1} = []
+  fitness = Float64[]
 
   try
     ind.code = transform(grammar, ind)
     @eval fn(x, y) = $(ind.code)
   catch e
-    # println("exception = $e")
+    #println("exception = $e")
+    #@show ind.code
     ind.fitness = Inf
     return
   end
@@ -49,7 +46,7 @@ function GrammaticalEvolution.evaluate!(grammar::Grammar, ind::ExampleIndividual
     end
   end
 
-  ind.fitness = mean(fitness)
+  ind.fitness = mean(fitness) + 0.001*length(string(ind.code))
 end
 
 function main()
@@ -57,11 +54,11 @@ function main()
   grammar = create_grammar()
 
   # create population
-  pop = ExamplePopulation(500, 100)
+  pop = ExamplePopulation(500, 200)
 
   fitness = Inf
   generation = 1
-  while fitness > 1.0
+  while true #fitness > 1.0
     # generate a new population (based off of fitness)
     pop = generate(grammar, pop, 0.1, 0.2, 0.2)
 
@@ -69,7 +66,9 @@ function main()
     fitness = pop[1].fitness
     println("generation: $generation, max fitness=$fitness, code=$(pop[1].code)")
     generation += 1
+    generation > 30 && break
   end
+  return pop
 end
 
 main()

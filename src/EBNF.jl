@@ -4,17 +4,17 @@ import Base.getindex
 
 abstract Rule
 
-typealias ActionType Union{Function, Void}
+typealias ActionType Union(Function, Nothing)
 
 type Grammar
   rules::Dict{Symbol, Rule}
 end
 
 immutable Terminal <: Rule
-  name::AbstractString
+  name::String
   value
 
-  function Terminal(name::AbstractString, value)
+  function Terminal(name::String, value)
     return new(name, value);
   end
 
@@ -22,116 +22,116 @@ immutable Terminal <: Rule
 end
 
 immutable ReferencedRule <: Rule
-  name::AbstractString
+  name::String
   symbol::Symbol
   action::ActionType
 
-  function ReferencedRule(name::AbstractString, symbol::Symbol, action)
+  function ReferencedRule(name::String, symbol::Symbol, action)
     return new(name, symbol, action)
   end
 
-  function ReferencedRule(name::AbstractString, symbol::Symbol)
+  function ReferencedRule(name::String, symbol::Symbol)
     return new(name, symbol, nothing)
   end
 end
 
 immutable AndRule <: Rule
-  name::AbstractString
+  name::String
   values::Array{Rule}
   action::ActionType
 
-  function AndRule(name::AbstractString, values::Array{Rule}, action)
+  function AndRule(name::String, values::Array{Rule}, action)
     return new(name, values, action)
   end
 end
 
 immutable OrRule <: Rule
-  name::AbstractString
+  name::String
   values::Array{Rule, 1}
   action::ActionType
 
-  function OrRule{T <: Rule}(name::AbstractString, rules::Array{T}, action::ActionType)
+  function OrRule{T <: Rule}(name::String, rules::Array{T}, action::ActionType)
     return new(name, rules, action)
   end
 
-  function OrRule(name::AbstractString, left::OrRule, right::OrRule, action::ActionType)
+  function OrRule(name::String, left::OrRule, right::OrRule, action::ActionType)
     return new(name, vcat(left.values, right.values), action)
   end
 
-  function OrRule(name::AbstractString, left::Rule, right::Rule, action::ActionType)
+  function OrRule(name::String, left::Rule, right::Rule, action::ActionType)
     return new(name, [left, right], action)
   end
 
-  function OrRule(name::AbstractString, left::OrRule, right::Rule, action::ActionType)
+  function OrRule(name::String, left::OrRule, right::Rule, action::ActionType)
     return new(name, vcat(left.values, right), action)
   end
 
-  function OrRule(name::AbstractString, left::Rule, right::OrRule, action::ActionType)
+  function OrRule(name::String, left::Rule, right::OrRule, action::ActionType)
     return new(name, vcat(right.values, left), action)
   end
 
-  function OrRule(name::AbstractString, left::OrRule, right::Terminal, action::ActionType)
+  function OrRule(name::String, left::OrRule, right::Terminal, action::ActionType)
     return new(name, vcat(left.values, right.value), action)
   end
 
-  function OrRule(name::AbstractString, left::Terminal, right::OrRule, action::ActionType)
+  function OrRule(name::String, left::Terminal, right::OrRule, action::ActionType)
     return new(name, vcat(right.values, left.value), action)
   end
 
-  function OrRule{T1, T2}(name::AbstractString, left::T1, right::T2, action::ActionType)
+  function OrRule{T1, T2}(name::String, left::T1, right::T2, action::ActionType)
     return new(name, [left, right], action)
   end
 end
 
 immutable OneOrMoreRule <: Rule
-  name::AbstractString
+  name::String
   value::Rule
   action::ActionType
 end
 
 immutable ZeroOrMoreRule <: Rule
-  name::AbstractString
+  name::String
   value::Rule
   action::ActionType
 end
 
 immutable RangeRule <: Rule
-  name::AbstractString
+  name::String
   range::UnitRange{Int64}
   action::ActionType
 
-  function RangeRule(name::AbstractString, range::UnitRange{Int64}, action::ActionType)
+  function RangeRule(name::String, range::UnitRange{Int64}, action::ActionType)
     return new(name, range, action)
   end
 end
 
 immutable RepeatedRule <: Rule
-  name::AbstractString
+  name::String
   range::UnitRange{Int64}
   value::Rule
   action::ActionType
 
-  function RepeatedRule(name::AbstractString, range::RangeRule, value::Rule, action::ActionType)
+  function RepeatedRule(name::String, range::RangeRule, value::Rule, action::ActionType)
     return new(name, range.range, value, action)
   end
 end
 
 immutable RegexRule <: Rule
-  name::AbstractString
+  name::String
   value::Regex
   action::ActionType
 
-  function RegexRule(name::AbstractString, value::Regex; action=nothing)
+  function RegexRule(name::String, value::Regex; action=nothing)
     return new(name, value, action)
   end
 end
 
 immutable OptionalRule <: Rule
-  name::AbstractString
+  name::String
   value::Rule
   action::ActionType
 
-  function OptionalRule(name::AbstractString, value::Rule)
+  function OptionalRule(name::String, value::Rule)
     return new(name, value)
   end
 
@@ -141,31 +141,31 @@ immutable OptionalRule <: Rule
 end
 
 immutable ListRule <: Rule
-  name::AbstractString
+  name::String
   entry::Rule
   delim::Rule
   action::ActionType
 
-  function ListRule(name::AbstractString, entry::Rule, delim::Rule; action=nothing)
+  function ListRule(name::String, entry::Rule, delim::Rule; action=nothing)
     return new(name, entry, delim, action)
   end
 end
 
 immutable FunctionRule <: Rule
-  name::AbstractString
+  name::String
   fn::Symbol
   args::Array{Rule}
 
-  function FunctionRule(name::AbstractString, fn::Symbol, args::Array{Rule})
+  function FunctionRule(name::String, fn::Symbol, args::Array{Rule})
     return new(name, fn, args)
   end
 end
 
 immutable ExprRule <: Rule
-  name::AbstractString
+  name::String
   args::Array{Any, 1}
 
-  function ExprRule(name::AbstractString, args::Array{Any, 1})
+  function ExprRule(name::String, args::Array{Any, 1})
     return new(name, args)
   end
 end
@@ -212,27 +212,27 @@ function convert{T}(::Type{Rule}, n::UnitRange{T})
   return OrRule(terminals);
 end
 
-function parseDefinition(name::AbstractString, value::AbstractString, action::ActionType)
+function parseDefinition(name::String, value::String, action::ActionType)
   return Terminal(name, value);
 end
 
-function parseDefinition(name::AbstractString, value::Char, action::ActionType)
+function parseDefinition(name::String, value::Char, action::ActionType)
   return Terminal(name, value);
 end
 
-function parseDefinition{T <: Number}(name::AbstractString, value::T, action::ActionType)
+function parseDefinition{T <: Number}(name::String, value::T, action::ActionType)
   return Terminal(name, value);
 end
 
-function parseDefinition(name::AbstractString, symbol::Symbol, action::ActionType)
+function parseDefinition(name::String, symbol::Symbol, action::ActionType)
   return ReferencedRule(name, symbol)
 end
 
-function parseDefinition(name::AbstractString, var::QuoteNode, action::ActionType)
+function parseDefinition(name::String, var::QuoteNode, action::ActionType)
   return var.value
 end
 
-function parseDefinition(name::AbstractString, regex::Regex, action::ActionType)
+function parseDefinition(name::String, regex::Regex, action::ActionType)
   # TODO: Need to do this to ensure we always match at the beginning,
   # but there should be a safer way to do this
   modRegex = Regex("^$(regex.pattern)")
@@ -242,7 +242,7 @@ end
 type EmptyRule <: Rule
 end
 
-function parseDefinition(name::AbstractString, ex::Expr, action::ActionType)
+function parseDefinition(name::String, ex::Expr, action::ActionType)
   # if it's a macro (e.g. r"regex") then we want to expand it first
   if ex.head === :macrocall
     return parseDefinition(name, eval(ex))
@@ -289,7 +289,7 @@ function parseDefinition(name::AbstractString, ex::Expr, action::ActionType)
 end
 
 macro grammar(grammar_name::Symbol, ex::Expr)
-  code = []
+  code = Any[]
   push!(code, :(rules = Dict()))
   for definition in ex.args[2:2:end]
     if typeof(definition.args[1]) === Expr && definition.args[1].head === :ref
