@@ -24,6 +24,11 @@ type MaxWrapException <: Exception end
 abstract Individual
 abstract Population
 
+#rcnlee
+include("../examples/ExamplePopulation.jl")
+export ExampleIndividual, ExamplePopulation
+#/rcnlee
+
 # methods that have to be supported by subclasses of population
 length{T <: Population}(pop::T) = length(pop.individuals)
 getindex{T <: Population}(pop::T, indices...) = pop.individuals[indices...]
@@ -39,7 +44,7 @@ isless{T <: Individual}(ind1::T, ind2::T) = ind1.fitness < ind2.fitness
 getFitness{T <: Individual}(ind::T) = ind.fitness
 # evaluate(ind::Individual) = nothing
 evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = nothing
-  
+
 # TODO: this should be distributed
 function evaluate!{PopulationType <: Population}(grammar::Grammar, pop::PopulationType, args...)
   for i=1:length(pop)
