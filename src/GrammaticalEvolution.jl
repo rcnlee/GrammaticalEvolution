@@ -11,6 +11,7 @@ import Base.push!
 import Base.pop!
 
 export Individual, Population
+export ExampleIndividual, ExamplePopulation #rcnlee
 export select_two_individuals, one_point_crossover, mutate!, evaluate!, generate, transform
 export length, getindex, endof, setindex!, isless, genome_iterator
 export MaxWrapException
@@ -23,6 +24,8 @@ type MaxWrapException <: Exception end
 
 abstract Individual
 abstract Population
+
+include("ExamplePopulation.jl") #rcnlee
 
 # methods that have to be supported by subclasses of population
 length{T <: Population}(pop::T) = length(pop.individuals)
@@ -38,8 +41,8 @@ setindex!{T <: Individual}(ind::T, value::Int64, indices) = ind.genome[indices] 
 isless{T <: Individual}(ind1::T, ind2::T) = ind1.fitness < ind2.fitness
 getFitness{T <: Individual}(ind::T) = ind.fitness
 # evaluate(ind::Individual) = nothing
-evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = nothing
-  
+evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = error("evaluate!() Not defined")
+
 # TODO: this should be distributed
 function evaluate!{PopulationType <: Population}(grammar::Grammar, pop::PopulationType, args...)
   for i=1:length(pop)
@@ -150,6 +153,7 @@ end
 function transform(grammar::Grammar, ind::Individual; maxwraps=2)
   pos = genome_iterator(length(ind), maxwraps)
   value = transform(grammar, grammar.rules[:start], ind, pos)
+
   return value
 end
 
@@ -161,9 +165,11 @@ function transform(grammar::Grammar, rule::OrRule, ind::Individual, pos::Task)
     value = rule.action(value)
   end
 
+  #println("OrRule: $value")
   return value
 end
 
+#=
 function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task)
   value = (ind[consume(pos)] % length(rule.range))+rule.range.start
 
@@ -173,12 +179,25 @@ function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task
 
   return value
 end
+=#
+
+function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task)
+  value = (ind[consume(pos)] % length(rule.range))+rule.range.start
+
+  if rule.action !== nothing
+    value = rule.action(value)
+  end
+  #println("RangeRule: $value")
+  return value
+end
 
 function transform(grammar::Grammar, rule::ReferencedRule, ind::Individual, pos::Task)
+  #println("ReferencedRule: $(rule.symbol)")
   return transform(grammar, grammar.rules[rule.symbol], ind, pos)
 end
 
 function transform(grammar::Grammar, rule::Terminal, ind::Individual, pos::Task)
+  #println("Terminal: $(rule.value)")
   return rule.value
 end
 
@@ -189,19 +208,23 @@ function transform(grammar::Grammar, rule::AndRule, ind::Individual, pos::Task)
     values = rule.action(values)
   end
 
+  #println("AndRule: $values")
   return values
 end
 
 function transform(grammar::Grammar, sym::Symbol, ind::Individual, pos::Task)
+  #println("Symbol: $sym")
   return sym
 end
 
 function transform(grammar::Grammar, q::QuoteNode, ind::Individual, pos::Task)
+  #println("QuoteNode: $(q.value)")
   return q.value
 end
 
 function transform(grammar::Grammar, rule::ExprRule, ind::Individual, pos::Task)
   args = [transform(grammar, arg, ind, pos) for arg in rule.args]
+  #println("ExprRule: $args")
   return Expr(args...)
 end
 
