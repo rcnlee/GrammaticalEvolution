@@ -97,7 +97,14 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
 
   # create a new population
   genome_size = length(population[1])
-  new_population = PopulationType(top_num, genome_size)
+  #rcnlee: changed#####
+  top_num_half = floor(Int64, top_num / 2)
+  #new_population = PopulationType(top_num, genome_size) #rcnlee: why is new pop entirely seeded with random?
+  new_population = PopulationType(top_num_half, genome_size) #half random
+  for i = 1:top_num_half #half top_performers
+    push!(new_population, population[i])
+  end
+  ##########
 
   # re-populate by mating top performers
   while length(new_population) < length(population)
