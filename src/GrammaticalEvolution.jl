@@ -18,7 +18,7 @@ export MaxWrapException
 include("EBNF.jl")
 
 export Grammar, @grammar, Rule, AndRule, OrRule, parseGrammar
-export RangeRule, ReferencedRule, ExprRule, Terminal #rcnlee added
+export RangeRule, ReferencedRule, ExprRule, RepeatedRule, Terminal #rcnlee added
 
 type MaxWrapException <: Exception end
 
