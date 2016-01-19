@@ -43,14 +43,15 @@ getindex{T <: Individual}(ind::T, indices...) = ind.genome[indices...]
 setindex!{T <: Individual}(ind::T, value::Int64, indices) = ind.genome[indices] = value
 isless{T <: Individual}(ind1::T, ind2::T) = ind1.fitness < ind2.fitness
 getFitness{T <: Individual}(ind::T) = ind.fitness
+getCode{T <: Individual}(ind::T) = ind.code
 # evaluate(ind::Individual) = nothing
 evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = nothing
 
 # TODO: this should be distributed
 function evaluate!{PopulationType <: Population}(grammar::Grammar, pop::PopulationType, args...)
   for i=1:length(pop)
-    if getFitness(pop[i]) < 0.0
-      evaluate!(grammar, pop[i], args...)
+    if getCode(pop[i]) == nothing #uninitialized
+      evaluate!(grammar, pop[i], pop, args...)
     end
   end
 end
@@ -101,7 +102,11 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
   #rcnlee: changed#####
   top_num_half = floor(Int64, top_num / 2)
   #new_population = PopulationType(top_num, genome_size) #rcnlee: why is new pop entirely seeded with random?
-  new_population = PopulationType(top_num_half, genome_size) #half random
+  new_population = PopulationType(top_num_half, genome_size,
+                                  population.best_fitness, #maintain info from previous generation
+                                  population.best_ind,
+                                  population.best_at_eval,
+                                  population.totalevals) #half random
   for i = 1:top_num_half #half top_performers
     push!(new_population, population[i])
   end
