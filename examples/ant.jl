@@ -189,7 +189,7 @@ end
   digit = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 end
 
-function evaluate!(grammar::Grammar, ind::ExampleIndividual, world::World)
+function evaluate!(grammar::Grammar, ind::ExampleIndividual, pop::ExamplePopulation, world::World)
   # copy world
   world = copy(world)
 
@@ -200,11 +200,17 @@ function evaluate!(grammar::Grammar, ind::ExampleIndividual, world::World)
   try
     ind.code = transform(grammar, ind)
     @eval fn(world::World, ant::Ant) = $(ind.code)
+    pop.totalevals += 1
+    if ind.fitness < pop.best_fitness
+      pop.best_fitness = ind.fitness
+      pop.best_ind = ind
+      pop.best_at_eval = pop.totalevals
+    end
   catch e
     if typeof(e) !== MaxWrapException
       Base.error_show(STDERR, e, catch_backtrace())
     end
-    ind.fitness = -Inf
+    ind.fitness = realmax(Float64)
     return
   end
 
@@ -212,11 +218,11 @@ function evaluate!(grammar::Grammar, ind::ExampleIndividual, world::World)
   fn(world, ant)
 
   # fitness is the amount of food eaten
-  ind.fitness = convert(Float64, ant.eaten)
+  ind.fitness = -convert(Float64, ant.eaten)
 end
 
 # need to redefine 'isless' (eating more is better)
-Base.isless(ind1::ExampleIndividual, ind2::ExampleIndividual) = ind1.fitness > ind2.fitness
+#Base.isless(ind1::ExampleIndividual, ind2::ExampleIndividual) = ind1.fitness > ind2.fitness
 
 
 function main()

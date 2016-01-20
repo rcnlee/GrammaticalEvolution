@@ -45,7 +45,7 @@ isless{T <: Individual}(ind1::T, ind2::T) = ind1.fitness < ind2.fitness
 getFitness{T <: Individual}(ind::T) = ind.fitness
 getCode{T <: Individual}(ind::T) = ind.code
 # evaluate(ind::Individual) = nothing
-evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = nothing
+evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = error("evaluate! not defined!")
 
 # TODO: this should be distributed
 function evaluate!{PopulationType <: Population}(grammar::Grammar, pop::PopulationType, args...)
