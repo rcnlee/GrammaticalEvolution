@@ -11,7 +11,6 @@ import Base.push!
 import Base.pop!
 
 export Individual, Population
-export ExampleIndividual, ExamplePopulation #rcnlee
 export select_two_individuals, one_point_crossover, mutate!, evaluate!, generate, transform
 export length, getindex, endof, setindex!, isless, genome_iterator
 export MaxWrapException
@@ -19,13 +18,17 @@ export MaxWrapException
 include("EBNF.jl")
 
 export Grammar, @grammar, Rule, AndRule, OrRule, parseGrammar
+export RangeRule, ReferencedRule, ExprRule, RepeatedRule, Terminal #rcnlee added
 
 type MaxWrapException <: Exception end
 
 abstract Individual
 abstract Population
 
-include("ExamplePopulation.jl") #rcnlee
+#rcnlee
+include("../examples/ExamplePopulation.jl")
+export ExampleIndividual, ExamplePopulation
+#/rcnlee
 
 # methods that have to be supported by subclasses of population
 length{T <: Population}(pop::T) = length(pop.individuals)
@@ -40,14 +43,15 @@ getindex{T <: Individual}(ind::T, indices...) = ind.genome[indices...]
 setindex!{T <: Individual}(ind::T, value::Int64, indices) = ind.genome[indices] = value
 isless{T <: Individual}(ind1::T, ind2::T) = ind1.fitness < ind2.fitness
 getFitness{T <: Individual}(ind::T) = ind.fitness
+getCode{T <: Individual}(ind::T) = ind.code
 # evaluate(ind::Individual) = nothing
-evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = error("evaluate!() Not defined")
+evaluate!{T <: Individual}(grammar::Grammar, ind::T, args...) = error("evaluate! not defined!")
 
 # TODO: this should be distributed
 function evaluate!{PopulationType <: Population}(grammar::Grammar, pop::PopulationType, args...)
   for i=1:length(pop)
-    if getFitness(pop[i]) < 0.0
-      evaluate!(grammar, pop[i], args...)
+    if getCode(pop[i]) == nothing #uninitialized
+      evaluate!(grammar, pop[i], pop, args...)
     end
   end
 end
@@ -95,7 +99,18 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
 
   # create a new population
   genome_size = length(population[1])
-  new_population = PopulationType(top_num, genome_size)
+  #rcnlee: changed#####
+  top_num_half = floor(Int64, top_num / 2)
+  #new_population = PopulationType(top_num, genome_size) #rcnlee: why is new pop entirely seeded with random?
+  new_population = PopulationType(top_num_half, genome_size,
+                                  population.best_fitness, #maintain info from previous generation
+                                  population.best_ind,
+                                  population.best_at_eval,
+                                  population.totalevals) #half random
+  for i = 1:top_num_half #half top_performers
+    push!(new_population, population[i])
+  end
+  ##########
 
   # re-populate by mating top performers
   while length(new_population) < length(population)
@@ -127,37 +142,40 @@ end
 # stateful iterator that keeps track of its current position, wraps the position
 # when the maximum length is reached, and emits an exception when the maximum
 # number of wraps occurs
-function genome_iterator(size::Int64, maxwraps::Int64)
-  i::Int64 = 1
-  wraps::Int64 = 0
+type GenomeIterator
+  #consts
+  size::Int64
+  maxwraps::Int64
 
-  function next()
-    while true
-      produce(i)
+  #states
+  i::Int64
+  wraps::Int64
+end
 
-      i += 1
-      if i > size
-        wraps += 1
-        i = 1
-      end
+function GenomeIterator(size::Int64, maxwraps::Int64;
+                        i::Int64=0, wraps::Int64=0)
+  return GenomeIterator(size, maxwraps, i, wraps)
+end
 
-      if wraps > maxwraps
-        throw(MaxWrapException())
-      end
-    end
+function Base.consume(pos::GenomeIterator)
+  pos.i += 1
+  if pos.i > pos.size
+    pos.wraps += 1
+    pos.i = 1
   end
-
-  return Task(next)
+  if pos.wraps > pos.maxwraps
+    throw(MaxWrapException())
+  end
+  return pos.i
 end
 
 function transform(grammar::Grammar, ind::Individual; maxwraps=2)
-  pos = genome_iterator(length(ind), maxwraps)
+  pos = GenomeIterator(length(ind), maxwraps)
   value = transform(grammar, grammar.rules[:start], ind, pos)
-
   return value
 end
 
-function transform(grammar::Grammar, rule::OrRule, ind::Individual, pos::Task)
+function transform(grammar::Grammar, rule::OrRule, ind::Individual, pos::GenomeIterator)
   idx = (ind[consume(pos)] % length(rule.values))+1
   value = transform(grammar, rule.values[idx], ind, pos)
 
@@ -165,12 +183,10 @@ function transform(grammar::Grammar, rule::OrRule, ind::Individual, pos::Task)
     value = rule.action(value)
   end
 
-  #println("OrRule: $value")
   return value
 end
 
-#=
-function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task)
+function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::GenomeIterator)
   value = (ind[consume(pos)] % length(rule.range))+rule.range.start
 
   if rule.action !== nothing
@@ -179,58 +195,41 @@ function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task
 
   return value
 end
-=#
 
-function transform(grammar::Grammar, rule::RangeRule, ind::Individual, pos::Task)
-  value = (ind[consume(pos)] % length(rule.range))+rule.range.start
-
-  if rule.action !== nothing
-    value = rule.action(value)
-  end
-  #println("RangeRule: $value")
-  return value
-end
-
-function transform(grammar::Grammar, rule::ReferencedRule, ind::Individual, pos::Task)
-  #println("ReferencedRule: $(rule.symbol)")
+function transform(grammar::Grammar, rule::ReferencedRule, ind::Individual, pos::GenomeIterator)
   return transform(grammar, grammar.rules[rule.symbol], ind, pos)
 end
 
-function transform(grammar::Grammar, rule::Terminal, ind::Individual, pos::Task)
-  #println("Terminal: $(rule.value)")
+function transform(grammar::Grammar, rule::Terminal, ind::Individual, pos::GenomeIterator)
   return rule.value
 end
 
-function transform(grammar::Grammar, rule::AndRule, ind::Individual, pos::Task)
+function transform(grammar::Grammar, rule::AndRule, ind::Individual, pos::GenomeIterator)
   values = [transform(grammar, subrule, ind, pos) for subrule in rule.values]
 
   if rule.action !== nothing
     values = rule.action(values)
   end
 
-  #println("AndRule: $values")
   return values
 end
 
-function transform(grammar::Grammar, sym::Symbol, ind::Individual, pos::Task)
-  #println("Symbol: $sym")
+function transform(grammar::Grammar, sym::Symbol, ind::Individual, pos::GenomeIterator)
   return sym
 end
 
-function transform(grammar::Grammar, q::QuoteNode, ind::Individual, pos::Task)
-  #println("QuoteNode: $(q.value)")
+function transform(grammar::Grammar, q::QuoteNode, ind::Individual, pos::GenomeIterator)
   return q.value
 end
 
-function transform(grammar::Grammar, rule::ExprRule, ind::Individual, pos::Task)
+function transform(grammar::Grammar, rule::ExprRule, ind::Individual, pos::GenomeIterator)
   args = [transform(grammar, arg, ind, pos) for arg in rule.args]
-  #println("ExprRule: $args")
   return Expr(args...)
 end
 
 # It's very unlikely these two methods will be useful -- the maximum size of the genome is arbritrarily high, so
 # you'll likely end up with mostly large numbers
-# function transform(grammar::Grammar, rule::ZeroOrMoreRule, ind::Individual, pos::Task)
+# function transform(grammar::Grammar, rule::ZeroOrMoreRule, ind::Individual, pos::GenomeIterator)
 #   # genome value gives number of time to repeat
 #   reps = ind[consume(pos)]
 
@@ -244,7 +243,7 @@ end
 #   return values
 # end
 
-# function transform(grammar::Grammar, rule::OneOrMoreRule, ind::Individual, pos::Task)
+# function transform(grammar::Grammar, rule::OneOrMoreRule, ind::Individual, pos::GenomeIterator)
 #   # genome value gives number of time to repeat
 #   reps = ind[consume(pos)]
 
@@ -263,7 +262,7 @@ end
 #   return values
 # end
 
-function transform(grammar::Grammar, rule::RepeatedRule, ind::Individual, pos::Task)
+function transform(grammar::Grammar, rule::RepeatedRule, ind::Individual, pos::GenomeIterator)
   # genome value gives number of time to repeat
   reps = ind[consume(pos)]
   range = (rule.range.stop - rule.range.start)

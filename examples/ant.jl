@@ -31,7 +31,7 @@ function read_map(s)
         if data[i][j] != startpos
           map[i, j] = convert(Int64, data[i][j])
         else
-          start = {i, j}
+          start = Any[i, j]
         end
       end
     end
@@ -63,6 +63,7 @@ immutable Direction
   value::Int64
 end
 
+import Base: +, -, isless
 +{T <: Number}(d::Direction, v::T) = Direction(d.value + v)
 -{T <: Number}(d::Direction, v::T) = Direction(d.value - v)
 isless(d1::Direction, d2::Direction) = isless(d1.value, d2.value)
@@ -75,7 +76,7 @@ const west = Direction(4)
 
 type AntIndividual <: Individual
   genome::Array{Int64, 1}
-  fitness::Union(Float64, Nothing)
+  fitness::Union{Float64,Void}
   code
 
   function AntIndividual(size::Int64, max_value::Int64)
@@ -188,7 +189,7 @@ end
   digit = 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 end
 
-function evaluate!(grammar::Grammar, ind::AntIndividual, world::World)
+function evaluate!(grammar::Grammar, ind::ExampleIndividual, pop::ExamplePopulation, world::World)
   # copy world
   world = copy(world)
 
@@ -199,11 +200,17 @@ function evaluate!(grammar::Grammar, ind::AntIndividual, world::World)
   try
     ind.code = transform(grammar, ind)
     @eval fn(world::World, ant::Ant) = $(ind.code)
+    pop.totalevals += 1
+    if ind.fitness < pop.best_fitness
+      pop.best_fitness = ind.fitness
+      pop.best_ind = ind
+      pop.best_at_eval = pop.totalevals
+    end
   catch e
     if typeof(e) !== MaxWrapException
       Base.error_show(STDERR, e, catch_backtrace())
     end
-    ind.fitness = -Inf
+    ind.fitness = realmax(Float64)
     return
   end
 
@@ -211,11 +218,11 @@ function evaluate!(grammar::Grammar, ind::AntIndividual, world::World)
   fn(world, ant)
 
   # fitness is the amount of food eaten
-  ind.fitness = convert(Float64, ant.eaten)
+  ind.fitness = -convert(Float64, ant.eaten)
 end
 
 # need to redefine 'isless' (eating more is better)
-isless(ind1::AntIndividual, ind2::AntIndividual) = ind1.fitness > ind2.fitness
+#Base.isless(ind1::ExampleIndividual, ind2::ExampleIndividual) = ind1.fitness > ind2.fitness
 
 
 function main()
@@ -224,19 +231,20 @@ function main()
   world = World(map, start)
 
   # create population
-  pop = AntPopulation(500, 500)
+  pop = ExamplePopulation(500, 500)
 
   fitness = 0
   generation = 1
 
   evaluate!(ant_grammar, pop, world)
   while generation < 1000
+    tic()
     # generate a new population (based off of fitness)
     pop = generate(ant_grammar, pop, 0.1, 0.2, 0.2, world)
 
     # population is sorted, so first entry it the best
     fitness = pop[1].fitness
-    println("generation: $generation, $(length(pop)), max fitness=$fitness\n$(pop[1].code)")
+    println("generation: $generation, $(length(pop)), max fitness=$fitness, time=$(signif(toq(),5))\n$(pop[1].code)")
     generation += 1
   end
 end
