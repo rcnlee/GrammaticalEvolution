@@ -89,30 +89,41 @@ function mutate!(ind::Individual, mutation_rate::Float64; max_value=1000)
   end
 end
 
-function generate{PopulationType <: Population}(grammar::Grammar, population::PopulationType, top_percent::Float64, prob_mutation::Float64, mutation_rate::Float64, args...)
+"""
+top_keep is fraction of population (sorted by fitness) that is directly kept
+rand_frac is fraction of new population that is randomly generated
+top_seed is fraction of population (sorted by fitness) that is used to seed the rest
+prob_mutation is the probability of mutating an indivual
+mutation_rate is the mutation rate on a mutating individual
+"""
+function generate{PopulationType <: Population}(grammar::Grammar, population::PopulationType, top_keep::Float64, top_seed::Float64, rand_frac::Float64, prob_mutation::Float64, mutation_rate::Float64, args...)
   # sort population
   sort!(population)
 
+  #rcnlee: changed#####
   # take top performers for cross-over
-  top_num::Int64 = floor(length(population)*top_percent)
-  top_performers = population[1:top_num]
+  n_keep::Int64 = floor(length(population)*top_keep) #top n_keep is copied from top_performers
+  n_seed::Int64 = floor(length(population)*top_seed) #top n_seed is used to seed remaining generation
+  n_rand::Int64 = floor(length(population)*rand_frac) #rand_frac fraction of population is random
+  top_performers = population[1:n_seed] #candidates for cross-over and mutation
 
   # create a new population
   genome_size = length(population[1])
-  #rcnlee: changed#####
-  top_num_half = floor(Int64, top_num / 2)
   #new_population = PopulationType(top_num, genome_size) #rcnlee: why is new pop entirely seeded with random?
-  new_population = PopulationType(top_num_half, genome_size,
+  
+  #randomly sample n_rand individuals
+  new_population = PopulationType(n_rand, genome_size,
                                   population.best_fitness, #maintain info from previous generation
                                   population.best_ind,
                                   population.best_at_eval,
-                                  population.totalevals) #half random
-  for i = 1:top_num_half #half top_performers
+                                  population.totalevals) #random population of size n_rand
+
+  for i = 1:n_keep #n_keep of old population is directly copied
     push!(new_population, population[i])
   end
   ##########
 
-  # re-populate by mating top performers
+  # fill in the rest by mating top performers
   while length(new_population) < length(population)
     (i1, i2) = select_two_individuals(top_performers)
     (ind1, ind2) = one_point_crossover(top_performers[i1], top_performers[i2])
@@ -121,7 +132,7 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
   end
 
   # mutate newly created population
-  for j=(top_num+1):length(population)
+  for j=(n_keep+1):length(population)
     if rand() < prob_mutation
       mutate!(new_population[j], mutation_rate)
     end
