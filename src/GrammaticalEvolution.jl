@@ -102,14 +102,13 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
 
   #rcnlee: changed#####
   # take top performers for cross-over
-  n_keep::Int64 = floor(length(population)*top_keep) #top n_keep is copied from top_performers
-  n_seed::Int64 = floor(length(population)*top_seed) #top n_seed is used to seed remaining generation
-  n_rand::Int64 = floor(length(population)*rand_frac) #rand_frac fraction of population is random
+  n_keep = floor(Int64, length(population)*top_keep) #top n_keep is copied from top_performers
+  n_seed = floor(Int64, length(population)*top_seed) #top n_seed is used to seed remaining generation
+  n_rand = floor(Int64, length(population)*rand_frac) #rand_frac fraction of population is random
   top_performers = population[1:n_seed] #candidates for cross-over and mutation
 
   # create a new population
   genome_size = length(population[1])
-  #new_population = PopulationType(top_num, genome_size) #rcnlee: why is new pop entirely seeded with random?
   
   #randomly sample n_rand individuals
   new_population = PopulationType(n_rand, genome_size,
@@ -131,8 +130,8 @@ function generate{PopulationType <: Population}(grammar::Grammar, population::Po
     push!(new_population, ind2)
   end
 
-  # mutate newly created population
-  for j=(n_keep+1):length(population)
+  # mutate the crossed-over portion of population 
+  for j=(n_rand+n_keep+1):length(population)
     if rand() < prob_mutation
       mutate!(new_population[j], mutation_rate)
     end
