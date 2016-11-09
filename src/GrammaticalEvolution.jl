@@ -92,11 +92,13 @@ end
 """
 top_keep is fraction of population (sorted by fitness) that is directly kept
 rand_frac is fraction of new population that is randomly generated
-top_seed is fraction of population (sorted by fitness) that is used to seed the rest
-prob_mutation is the probability of mutating an indivual
+top_seed is fraction of population (sorted by fitness) that is used to seed the remaining part of population
+prob_mutation is the probability of mutating an individual
 mutation_rate is the mutation rate on a mutating individual
 """
-function generate{PopulationType <: Population}(grammar::Grammar, population::PopulationType, top_keep::Float64, top_seed::Float64, rand_frac::Float64, prob_mutation::Float64, mutation_rate::Float64, args...)
+function generate{PopulationType <: Population}(grammar::Grammar, population::PopulationType,   
+    top_keep::Float64, top_seed::Float64, rand_frac::Float64, prob_mutation::Float64, 
+    mutation_rate::Float64, args...)
   # sort population
   sort!(population)
 
