@@ -281,7 +281,7 @@ function parseDefinition(name::AbstractString, ex::Expr, action::ActionType)
   elseif ex.head == :(:)
     # a UnitRange
 #     return OrRule(name, [Terminal(value) for value in (ex.args[1]):(ex.args[2])], nothing)
-    return RangeRule(name, (ex.args[1]):(ex.args[2]), nothing)
+    return RangeRule(name, (ex.args[1]):(ex.args[2]), action)
   end
 
   println("?? $(ex.args)")
